@@ -22,9 +22,9 @@ def setup_logger():
 
 bot = Bot(token=API_TOKEN)
 
-async def send_msg_to_telegram(error_message: str):
+async def send_msg_to_telegram(error_message: str, parse_mode="HTML"):
     try:
-        await bot.send_message(chat_id=CHAT_ID, text=f"{error_message}")
+        await bot.send_message(chat_id=CHAT_ID, text=f"{error_message}", parse_mode=parse_mode)
     except Exception as e:
         print(f"Ошибка при отправке сообщения: {e}")
 
@@ -40,7 +40,7 @@ async def main():
         1 / 0  
     except Exception as e:
         logger.error(f"Произошла ошибка: {e}") 
-        await send_msg_to_telegram(f'Произошла ошибка: {e}')
+        await send_msg_to_telegram(f'Произошла ошибка: {e}', parse_mode=None)
 
 if __name__ == "__main__":
     asyncio.run(main())

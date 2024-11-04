@@ -12,35 +12,53 @@ from logger import send_msg_to_telegram, setup_logger
 SCOPES = ['https://www.googleapis.com/auth/gmail.modify']
 logger = setup_logger()  
 
-async def check_new_emails(last_email_id,service, query):
-    # query = 'is:unread'  # Фильтр для непрочитанных сообщений
+import re
 
+async def check_new_emails(last_email_id, service, query):
     request_body = {
        'removeLabelIds': ['UNREAD'],  # Удаляем метку "непрочитанное"
     }
+
+    async def matchCode(storeName: str, code: str, message):
+        await send_msg_to_telegram(f"🏄‍♂️ Код подтверждения <b>{storeName}</b>: {code}")
+        last_email_id = message['id'] 
+
+        # Изменение меток письма
+        response = service.users().messages().modify(userId='me', id=last_email_id, body=request_body).execute()
+        print(f"Message with ID: {last_email_id} marked as read.")
 
     results = service.users().messages().list(userId='me', q=query).execute()
     messages = results.get('messages', [])
 
     if not messages:
-        # print("Нет новых писем.")
         logger.info("Нет новых писем.")
     else:
         for message in messages:
             if message['id'] != last_email_id:
                 msg = service.users().messages().get(userId='me', id=message['id']).execute()
-                print(f"Новое письмо: {msg['snippet']}")
-                await send_msg_to_telegram(msg['snippet'])
-                last_email_id = message['id']  # Обновляем ID последнего письма
-       
 
-                # Изменение меток письма
-                response = service.users().messages().modify(userId='me', id=last_email_id, body=request_body).execute()
+                # Получаем тело сообщения
+                if 'data' in msg['payload']['body']:
+                    message_body = base64.urlsafe_b64decode(msg['payload']['body']['data']).decode('utf-8')
+                else:
+                    parts = msg['payload'].get('parts', [])
+                    message_body = ""
+                    for part in parts:
+                        if part['mimeType'] == 'text/plain' and 'data' in part['body']:
+                            message_body += base64.urlsafe_b64decode(part['body']['data']).decode('utf-8')
 
-                print(f"Message with ID: {last_email_id} marked as read.")
-            else:
-                print("Новое письмо не найдено.")
-    return last_email_id
+
+                # Ищем код подтверждения
+                matchUnity = re.search(r"Verification code for your Unity ID is (\d+)", message_body)
+                matchEpic = re.search(r"Your two-factor sign in code\s*(\d+)", message_body)
+            
+                if matchEpic is not None:
+                    verification_code = matchEpic.group(1)
+                    await matchCode('Epic Store', verification_code,message)
+                if matchUnity is not None:
+                    verification_code = matchUnity.group(1)
+                    await matchCode('Unity', verification_code,message)
+
 
 async def main():
     try:
@@ -70,6 +88,7 @@ async def main():
         while True:
             last_email_id = await check_new_emails(last_email_id, service,query)
             await asyncio.sleep(30) 
+        # await check_new_emails(last_email_id, service,query)
     except Exception as e:
         await send_msg_to_telegram(f'Произошла ошибка: {e}')
         logger.error(f"Произошла ошибка: {e}") 
