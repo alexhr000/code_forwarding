@@ -6,7 +6,7 @@ from config import CHAT_ID, API_TOKEN
 
 # Функция настройки логгера
 def setup_logger():
-    logger = logging.getLogger()
+    logger = logging.getLogger() 
     logger.setLevel(logging.ERROR)  
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO) 
