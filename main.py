@@ -219,17 +219,34 @@ def check_new_messages():
 
                     for message in new_same_messages:
                         message_count = int(message.text) if message.text.isdigit() else 0
+                        index_count = 1
                         
-                        if message_count > 1:
+                        if message_count > index_count:
                             try:
                                 WebDriverWait(driver, 10).until(EC.element_to_be_clickable(message))
                                 ActionChains(driver).move_to_element(message).click().perform()
                                 print("Кликнули на сообщение с количеством:", message_count)
-                                driver.refresh()
+
+                                # Получаем HTML и обрабатываем его
+                                html = driver.page_source
+                                soup = BeautifulSoup(html, 'html.parser')
+
+                                main_container = soup.find('div', class_='gmSzme')
+                                if main_container:
+                                    last_message_div = main_container.find_all('div', class_='ArwC7c')[-1]
+                                    if last_message_div:
+                                        message_text = last_message_div.find('div', class_='oex1Df').get_text(strip=True)
+                                        print(message_text)
+                                        driver.back()
+                                    else:
+                                        print("Последнее сообщение не найдено.")
+                                else:
+                                    print("Главный контейнер не найден.")
+                                
                             except Exception as e:
                                 print(f"Ошибка при клике на сообщение: {e}")
 
-            time.sleep(30)  
+            time.sleep(30) 
 
         except Exception as e:
             print(f"Произошла ошибка при проверке новых сообщений: {e}")
